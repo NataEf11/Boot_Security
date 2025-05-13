@@ -1,6 +1,7 @@
 package ru.kata.spring.boot_security.demo.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -17,11 +18,15 @@ import java.util.stream.Collectors;
 public class AdminController {
     private final UserService userService;
     private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public AdminController(UserService userService, RoleRepository roleRepository) {
+    public AdminController(UserService userService,
+                           RoleRepository roleRepository,
+                           PasswordEncoder passwordEncoder) {
         this.userService = userService;
         this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @GetMapping
@@ -39,6 +44,7 @@ public class AdminController {
 
     @PostMapping("/save")
     public String saveUser(@ModelAttribute User user, @RequestParam(required = false) List<Long> roleIds) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setRoles(roleIds.stream()
                 .map(id -> roleRepository.findById(id).orElse(null))
                 .filter(Objects::nonNull)
@@ -61,6 +67,14 @@ public class AdminController {
 
     @PostMapping("/edit")
     public String editUser(@ModelAttribute User user, @RequestParam(required = false) List<Long> roleIds) {
+        User existingUser = userService.findById(user.getId());
+
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            user.setPassword(existingUser.getPassword());
+        } else {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
+
         user.setRoles(roleIds.stream()
                 .map(id -> roleRepository.findById(id).orElse(null))
                 .filter(Objects::nonNull)
